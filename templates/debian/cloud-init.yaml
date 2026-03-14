@@ -24,8 +24,6 @@ packages:
    - ca-certificates
    - gnupg
    - lsb-release
-   - docker.io
-   - docker-compose
    - kubectl
    - neovim
    - zsh
@@ -59,20 +57,47 @@ write_files:
     permissions: '0755'
     content: |
       #!/usr/bin/env bash
+      # Kubernetes management helper
+
       case "${1:-help}" in
-        info)
+        status)
           echo "=== Kubernetes Cluster Info ==="
           if kubectl cluster-info 2>/dev/null; then
             kubectl cluster-info
+            echo ""
+            echo "=== Kubernetes Nodes ==="
+            kubectl get nodes -o wide 2>/dev/null || echo "No nodes available"
           else
             echo "No Kubernetes cluster connected"
+            echo "Connect to a cluster with: kubectl config use-context <context>"
           fi
           ;;
         nodes) kubectl get nodes -o wide ;;
         pods) kubectl get pods -A ;;
         contexts) kubectl config get-contexts ;;
         current) kubectl config current-context ;;
-        *) echo "Usage: k8s-ops <info|nodes|pods|contexts|current>" ;;
+        k9s)
+          k9s
+          ;;
+        kubectl)
+          shift
+          kubectl "$@"
+          ;;
+        help|*)
+          echo "Kubernetes management helper"
+          echo ""
+          echo "Usage: k8s-ops <command>"
+          echo ""
+          echo "Commands:"
+          echo "  status     Show cluster info and nodes"
+          echo "  nodes      List all Kubernetes nodes"
+          echo "  pods       List all pods across namespaces"
+          echo "  contexts   Show available contexts"
+          echo "  current    Show current context"
+          echo "  k9s        Launch k9s terminal UI"
+          echo "  kubectl    Run kubectl commands"
+          echo "  help       Show this help message"
+          ;;
       esac
   - path: /etc/systemd/system/incus-agent.service
     content: |
@@ -149,6 +174,17 @@ runcmd:
   - timeout 60 curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh || echo "UV install failed"
   - /root/.bun/bin/bun add -g @fission-ai/openspec@latest || true
   - timeout 120 git clone https://github.com/Hnatekmar/lazyvim.git ~/.config/nvim || echo "LazyVim clone failed"
+  # Install k9s
+  - mkdir -p /tmp/k9s-download
+  - curl -sS -L https://github.com/derailed/k9s/releases/download/v0.32.5/k9s_Linux_amd64.tar.gz -o /tmp/k9s.tar.gz
+  - tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-download
+  - mv /tmp/k9s-download/k9s /usr/local/bin/k9s
+  - chmod +x /usr/local/bin/k9s
+  - rm -rf /tmp/k9s.tar.gz /tmp/k9s-download
+  # Install Carvel ytt
+  - curl -Lo /tmp/ytt "https://github.com/carvel-dev/ytt/releases/download/v0.47.0/ytt-linux-amd64"
+  - mv /tmp/ytt /usr/local/bin/ytt
+  - chmod +x /usr/local/bin/ytt
   - |
     rm -rf /root/.oh-my-zsh
     ZSH=/root/.oh-my-zsh RUNZSH=no CHSH=no /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || echo "Oh My Zsh install failed"
@@ -158,10 +194,8 @@ runcmd:
   - systemctl daemon-reload
   - systemctl enable incus-agent
   - systemctl start incus-agent || true
-  - systemctl enable docker
-  - systemctl start docker
-  - timeout 60 curl -sSfL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash || echo "k3d install skipped"
-  - timeout 60 curl -Lo /tmp/ytt "https://github.com/carvel-dev/ytt/releases/download/v0.47.0/ytt-linux-amd64" && mv /tmp/ytt /usr/local/bin/ytt && chmod +x /usr/local/bin/ytt || echo "ytt install skipped"
+  - systemctl enable ssh
+  - systemctl start ssh
   - systemctl enable ssh
   - systemctl start ssh
   - echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config
