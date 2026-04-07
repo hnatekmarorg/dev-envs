@@ -8,9 +8,13 @@ A preseeded Debian VM template for rapid development environment provisioning us
 - **Incus Agent Support**: Full bidirectional communication between host and VM
 - **Comprehensive Toolchain**: Docker, Kubernetes CLI, Git, Go, Python, Node.js support
 - **Modern Shell**: Zsh with Oh My Zsh, fzf, zoxide, and custom prompt
-- **AI Integration**: Pre-configured for OpenCode AI assistant
+- **AI Integration**: Pre-configured for OpenCode AI assistant with multiple model providers
+  - **GLM 4.7**: Heavy reasoning tasks
+  - **Qwen3.5 (reasoning)**: Planning and complex reasoning
+  - **Qwen3.5 (coding)**: Primary coding and execution
+  - **Minimax 2.5**: Alternative reasoning model
+  - **Fast models**: Background tasks and commit summarization
 - **Kubernetes Ready**: kubectl, k9s, and cluster management tools (for external clusters)
-- **Hybrid Package Management**: apt for system packages, Homebrew for user-level tools
 - **SSH Key Configuration**: Your public SSH key is automatically configured for passwordless access
 
 ## Requirements
@@ -34,9 +38,9 @@ This creates a profile named `debian-base-{commit-hash}` with all the configurat
 
 ```bash
 incus launch --vm images:debian/13/cloud my-dev-environment -p default -p debian-base-{commit-hash}
-```
 
-**Important**: Use `images:debian/13/cloud` (Debian 13 Trixie cloud image) to ensure cloud-init is pre-installed.
+
+**Important**: Use `images:debian/13/cloud` (not `images:debian/13`) to ensure cloud-init is pre-installed.
 
 Replace `{commit-hash}` with the actual hash shown after running `make create`.
 
@@ -44,12 +48,12 @@ Replace `{commit-hash}` with the actual hash shown after running `make create`.
 
 The VM will automatically:
 - Update all packages
-- Install development tools via apt and Homebrew
+- Install development tools
 - Configure SSH
 - Start the Incus agent
 - Set up the development environment
 
-This typically takes 5-8 minutes (Homebrew installation takes longer than apt).
+This typically takes 3-5 minutes.
 
 ### 4. Connect to Your VM
 
@@ -57,16 +61,11 @@ This typically takes 5-8 minutes (Homebrew installation takes longer than apt).
 # Check if VM is ready
 incus exec my-dev-environment -- hostname
 
-# Connect via shell (as root)
+# Connect via shell
 incus exec -it my-dev-environment -- bash
-
-# Or as dev user (with Homebrew)
-incus exec -it my-dev-environment -- su - dev
 
 # Or via SSH (your public key is pre-configured)
 ssh root@<vm-ip>
-# or
-ssh dev@<vm-ip>
 ```
 
 ### SSH Access
@@ -79,9 +78,6 @@ users:
     shell: /usr/bin/zsh
     ssh_authorized_keys:
       - ssh-ed25519 YOUR_PUBLIC_KEY_HERE
-  - name: dev
-    shell: /usr/bin/zsh
-    # ... dev user configuration
 ```
 
 **To change the SSH key:**
@@ -91,24 +87,9 @@ users:
 
 **Note:** Existing VMs won't automatically update. You need to recreate them to apply key changes.
 
-## Users
-
-This template creates two users:
-
-### root
-- Full system access
-- All development tools installed
-- SSH access configured
-
-### dev
-- Sudo access (passwordless)
-- Homebrew installed at `/home/linuxbrew/.linuxbrew`
-- Member of `sudo` and `docker` groups
-- Ideal for running development commands
-
 ## Available Tools
 
-### Development Essentials (installed via apt)
+### Development Essentials
 - Git & Git LFS
 - Go (Golang)
 - Docker & Docker Compose
@@ -131,32 +112,11 @@ This template creates two users:
 - k8s-ops - Cluster management helper
 - ytt - YAML templating
 
-**Note**: This template supports **external Kubernetes clusters only**. K3D/K3S may not work reliably in containerized environments. Connect to:
+**Note**: This template supports **external Kubernetes clusters only**. K3D/K3S don't work reliably in containerized environments. Connect to:
 - Cloud K8s (GKE, EKS, AKS)
 - Minikube on a separate VM
 - On-premises clusters
 - Any cluster with a kubeconfig
-
-### Homebrew Packages (installed for dev user)
-- git, go, node, python, docker
-- k9s, yq
-- Additional packages can be installed via `brew install`
-
-## Package Management
-
-This template uses a hybrid approach:
-
-### apt (system packages)
-Used for:
-- Base system tools
-- Kernel-level packages
-- System services (Docker, SSH)
-
-### Homebrew (user packages)
-Used for:
-- Development tools for dev user
-- Easy version management
-- Cross-distro portability
 
 ## Managing VMs
 
@@ -225,34 +185,6 @@ incus exec <vm-name> -- systemctl status docker
 incus exec <vm-name> -- systemctl start docker
 ```
 
-### Homebrew Issues (dev user)
-If Homebrew commands fail:
-```bash
-# Check Homebrew installation
-incus exec <vm-name> -- su - dev -c '/home/linuxbrew/.linuxbrew/bin/brew doctor'
-
-# Update Homebrew
-incus exec <vm-name> -- su - dev -c '/home/linuxbrew/.linuxbrew/bin/brew update'
-
-# Fix permissions
-incus exec <vm-name> -- sudo chown -R dev:dev /home/linuxbrew/.linuxbrew
-```
-
-## Why Debian?
-
-After extensive testing:
-- ✅ **Ubuntu VMs**: Incus agent works reliably
-- ✅ **Debian VMs**: Incus agent works reliably
-- ❌ **Fedora VMs**: Incus agent fails to start
-- ❌ **Containers**: K3D/K3S don't work due to kernel restrictions
-
-Debian 13 (Trixie) provides:
-- Latest stable packages
-- Long-term support
-- Excellent Incus/LXD compatibility
-- Strong community support
-- Hybrid apt+Homebrew package management for flexibility
-
 ## Architecture
 
 ```
@@ -264,7 +196,6 @@ Host (Incus)
     ├── my-dev-environment
     │   ├── /usr/local/bin/k8s-ops
     │   ├── /etc/systemd/system/incus-agent.service
-    │   ├── /home/linuxbrew/.linuxbrew (Homebrew for dev user)
     │   └── All development tools
     └── other-vm...
 ```
@@ -282,6 +213,24 @@ Edit `runcmd:` section in `cloud-init.yaml`
 
 **Important**: After changes, run `make destroy && make create` to update the profile.
 
+## Why Debian?
+
+After extensive testing:
+- ✅ **Ubuntu VMs**: Incus agent works reliably
+- ✅ **Debian VMs**: Incus agent works reliably  
+- ❌ **Fedora VMs**: Incus agent fails to start
+- ❌ **Containers**: K3D/K3S don't work due to kernel restrictions
+
+Debian 13 (Trixie) provides:
+- Recent packages
+- Rolling release model
+- Incus/LXD compatibility
+- Large community support
+- Stable base for development
+- Long-term support (LTS)
+- Incus/LXD compatibility
+- Community support
+
 ## License
 
 This template is provided as-is for development purposes.
@@ -292,4 +241,3 @@ For issues or questions:
 1. Check the troubleshooting section above
 2. Review Incus documentation: https://linuxcontainers.org/incus/docs/main/
 3. Check cloud-init documentation: https://cloudinit.readthedocs.io/
-4. Homebrew documentation: https://docs.brew.sh/

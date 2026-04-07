@@ -6,6 +6,7 @@ preserve_hostname: false
 packages:
    - build-essential
    - curl
+   - fd-find
    - git
    - git-lfs
    - htop
@@ -15,6 +16,7 @@ packages:
    - net-tools
    - nmap
    - openssh-server
+   - ripgrep
    - rsync
    - tar
    - unzip
@@ -24,7 +26,6 @@ packages:
    - ca-certificates
    - gnupg
    - lsb-release
-   - kubectl
    - neovim
    - zsh
    - kitty-terminfo
@@ -110,51 +111,128 @@ write_files:
       Restart=always
       RestartSec=5
       [Install]
-      WantedBy=multi-user.target
-  - path: /root/.config/opencode/config.json
-    content: |
-      {
-        "$schema": "https://opencode.ai/config.json",
-        "plugin": [],
-        "permission": {
-          "edit": "allow",
-          "bash": "ask",
-          "skill": "allow",
-          "webfetch": "allow",
-          "doom_loop": "ask",
-          "external_directory": "ask"
-        },
-        "enabled_providers": ["qwen3-5-122b"],
-        "provider": {
-          "qwen3-5-122b": {
-            "npm": "@ai-sdk/openai-compatible",
-            "name": "Qwen Provider",
-            "options": {
-              "baseURL": "http://172.16.100.136:8000/v1"
-            },
-            "models": {
-              "qwen3-5-122b": {
-                "name": "Qwen 3.5 122B (local)",
-                "variants": {
-                  "coding": {
-                    "temperature": 0.2,
-                    "top_p": 0.9,
-                    "repetition_penalty": 1.1,
-                    "chat_template_kwargs": {
-                      "enable_thinking": false
+      - path: /root/.pi/agent/models.json
+        content: |
+          {
+            "providers": {
+              "qwen-thinking": {
+                "baseUrl": "https://sota.hnatekmar.dev/v1",
+                "apiKey": "sk",
+                "api": "openai-completions",
+                "models": [
+                  {
+                    "id": "Qwen/Qwen3.5-122B-A10B-FP8",
+                    "name": "Qwen3.5 (reasoning)",
+                    "input": ["text", "image"],
+                    "contextWindow": 262144,
+                    "maxTokens": 32000,
+                    "cost": {
+                      "input": 0,
+                      "output": 0,
+                      "cacheRead": 0,
+                      "cacheWrite": 0
+                    },
+                    "temperature": 1.0,
+                    "top_p": 0.95,
+                    "presence_penalty": 1.5,
+                    "compat": {
+                      "thinkingFormat": "qwen-chat-template",
+                      "extraBody": {
+                        "top_k": 20,
+                        "min_p": 0.0,
+                        "repetition_penalty": 1.0
+                      }
+                    }
+                  }
+                ]
+              },
+              "qwen-coding": {
+                "baseUrl": "https://sota.hnatekmar.dev/v1",
+                "apiKey": "sk",
+                "api": "openai-completions",
+                "models": [
+                  {
+                    "id": "Qwen/Qwen3.5-122B-A10B-FP8",
+                    "name": "Qwen3.5 (coding)",
+                    "reasoning": false,
+                    "input": ["text", "image"],
+                    "contextWindow": 262144,
+                    "maxTokens": 32000,
+                    "cost": {
+                      "input": 0,
+                      "output": 0,
+                      "cacheRead": 0,
+                      "cacheWrite": 0
+                    },
+                    "temperature": 1.0,
+                    "top_p": 0.8,
+                    "presence_penalty": 0.0,
+                    "compat": {
+                      "thinkingFormat": "qwen-chat-template",
+                      "extraBody": {
+                        "top_k": 20,
+                        "min_p": 0.0,
+                        "repetition_penalty": 1.0,
+                        "chat_template_kwargs": {
+                          "enable_thinking": false
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "fast": {
+                "baseUrl": "https://fast.hnatekmar.dev/v1",
+                "apiKey": "sk",
+                "api": "openai-completions",
+                "models": [
+                  {
+                    "id": "Qwen/Qwen3.5-35B-A3B-FP8",
+                    "name": "Qwen/Qwen3.5-35B-A3B-FP8",
+                    "reasoning": false,
+                    "input": ["text", "image"],
+                    "contextWindow": 262144,
+                    "maxTokens": 65536,
+                    "cost": {
+                      "input": 0,
+                      "output": 0,
+                      "cacheRead": 0,
+                      "cacheWrite": 0
+                    },
+                    "temperature": 1.0,
+                    "top_p": 0.95,
+                    "repetition_penalty": 1.0,
+                    "compat": {
+                      "extraBody": {
+                        "top_k": 20
+                      }
                     }
                   },
-                  "thinking": {
-                    "temperature": 0.7,
-                    "top_p": 0.95
+                  {
+                    "id": "Qwen/Qwen3-Coder-Next-FP8",
+                    "name": "Qwen next coder",
+                    "reasoning": false,
+                    "input": ["text"],
+                    "contextWindow": 262144,
+                    "maxTokens": 65536,
+                    "cost": {
+                      "input": 0,
+                      "output": 0,
+                      "cacheRead": 0,
+                      "cacheWrite": 0
+                    },
+                    "temperature": 1.0,
+                    "top_p": 0.95,
+                    "compat": {
+                      "extraBody": {
+                        "top_k": 40
+                      }
+                    }
                   }
-                }
+                ]
               }
             }
           }
-        }
-      }
-
 runcmd:
   - export HOME=/root
   - export USER=root
@@ -169,11 +247,18 @@ runcmd:
   - nohup bash -c 'timeout 300 curl -fsSL https://raw.githubusercontent.com/darrenhinde/OpenAgentsControl/main/install.sh | bash -s developer > /var/log/opagents-install.log 2>&1' > /dev/null 2>&1 &
   - timeout 60 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash || echo "NVM install failed"
   - export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && nvm install v25 && nvm use v25 || true
-  - timeout 60 curl -fsSL https://bun.sh/install | bash || echo "Bun install failed"
-  - /root/.bun/bin/bun add -g @th0rgal/ralph-wiggum || true
-  - timeout 60 curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh || echo "UV install failed"
-  - /root/.bun/bin/bun add -g @fission-ai/openspec@latest || true
-  - timeout 120 git clone https://github.com/Hnatekmar/lazyvim.git ~/.config/nvim || echo "LazyVim clone failed"
+  - timeout 60 curl -fsSL https://bun.com/install | bash || echo "Bun install failed"
+  - source /root/.bashrc && /root/.bun/bin/bun --version || echo "Warning: Bun not working"
+  - source /root/.bashrc && /root/.bun/bin/bun add -g @mariozechner/pi-coding-agent || echo "pi-coding-agent install failed"
+  # Install kubectl from Kubernetes official repo
+  - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg || true
+  - echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list > /dev/null || true
+  - apt-get update || true
+  - apt-get install -y kubectl || true
+  # Install neovim v0.12.1
+  - curl -sL https://github.com/neovim/neovim/releases/download/v0.12.1/nvim-linux-x86_64.tar.gz -o /tmp/nvim.tar.gz
+  - tar -xzf /tmp/nvim.tar.gz --strip-components=1 --overwrite -C /usr
+  - rm -rf /tmp/nvim.tar.gz
   # Install k9s
   - mkdir -p /tmp/k9s-download
   - curl -sS -L https://github.com/derailed/k9s/releases/download/v0.32.5/k9s_Linux_amd64.tar.gz -o /tmp/k9s.tar.gz
@@ -194,8 +279,6 @@ runcmd:
   - systemctl daemon-reload
   - systemctl enable incus-agent
   - systemctl start incus-agent || true
-  - systemctl enable ssh
-  - systemctl start ssh
   - systemctl enable ssh
   - systemctl start ssh
   - echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config

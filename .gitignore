@@ -1,0 +1,37 @@
+# OpenSpec artifacts (generated during workflow)
+openspec/changes/*/proposal.md
+openspec/changes/*/design.md
+openspec/changes/*/tasks.md
+openspec/changes/*/.openspec.yaml
+
+# Build outputs
+node_modules/
+dist/
+build/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Editor and IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test VMs (local only)
+incus-test-*
+
+# Docker images (referenced only, not stored)
