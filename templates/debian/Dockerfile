@@ -3,6 +3,7 @@ FROM debian:13-slim
 ENV HOME=/root
 ENV USER=root
 WORKDIR /app
+
 # Install development tools
 RUN apt-get update && apt-get install -y \
   # Build tools
@@ -83,6 +84,7 @@ RUN curl -fsSL https://bun.sh/install | bash && \
 # Install pi.dev coding agent
 RUN ~/.bun/bin/bun add -g @mariozechner/pi-coding-agent
 
+RUN echo 'export OPENSPEC_TELEMETRY=0' > /etc/profile.d/disable_openspec_telemetry.sh
 
 # Install UV
 RUN curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh && \
@@ -106,7 +108,9 @@ COPY ./entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 RUN . ~/.bashrc && nvm install 24 && nvm use 24 && \
-  pi install git:github.com/tmustier/pi-extensions
+  pi install git:github.com/tmustier/pi-extensions && \
+  pi install npm:pi-hooks && \
+  npm install -g @fission-ai/openspec@latest
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
