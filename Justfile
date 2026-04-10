@@ -15,10 +15,10 @@ list:
 	@echo "  just debian-destroy   - Destroy Debian profile"
 	@echo ""
 	@echo "Docker:"
-	@echo "  just docker-build     - Build Debian Docker image"
-	@echo "  just docker-run       - Run Debian Docker container"
-	@echo "  just docker-clean     - Clean Debian Docker image"
-	@echo ""
+	@echo "  just docker-build        - Build Debian Docker image with your UID/GID"
+	@echo "  just docker-build-default - Build with default UID/GID (1000)"
+	@echo "  just docker-run          - Run Debian Docker container"
+	@echo "  just docker-clean        - Clean Debian Docker image"
 	@echo "Utilities:"
 	@echo "  just help             - Show this help message"
 	@echo "  just validate         - Validate repository structure"
@@ -43,26 +43,32 @@ container name:
 	@echo "  docker run -it --rm --name {{name}} debian-dev"
 	@echo ""
 	@echo "Or with volume mount for development:"
-	@echo "  docker run -it --rm -v $PWD:/app --name {{name}} debian-dev"
+	@echo "  docker run -it --rm -v \$PWD:/home/devuser/app --name {{name}} debian-dev"
 	@echo ""
 	@echo "To access the container later:"
 	@echo "  docker exec -it {{name}} bash"
-
-# Create Debian VM profile
+	@echo ""
+	@echo ""
+	@echo ""
+	@echo "# Create Debian VM profile"
 debian-create:
 	@cd templates/debian && make create
+
 
 # Test Debian profile
 debian-test:
 	@cd templates/debian && make test-profile
 
+
 # Destroy Debian profile
 debian-destroy:
-	@cd templates/debian && make destroy
-
-# Build Debian Docker image
+# Build Debian Docker image with current user's UID/GID
 docker-build:
-	@cd templates/debian && docker build -t debian-dev .
+	@cd templates/debian && make docker-build
+
+# Build Debian Docker image with default UID/GID (1000)
+docker-build-default:
+	@cd templates/debian && make docker-build-default
 
 # Run Debian Docker container
 docker-run: docker-build
@@ -76,8 +82,6 @@ docker-clean:
 validate:
 	@echo "=== Validating Repository Structure ==="
 	@echo ""
-	@test -f README.md && echo "✓ README.md" || echo "✗ README.md missing"
-	@test -f AGENTS.md && echo "✓ AGENTS.md" || echo "✗ AGENTS.md missing"
 	@test -f openspec/config.yaml && echo "✓ openspec/config.yaml" || echo "✗ openspec/config.yaml missing"
 	@test -f .gitignore && echo "✓ .gitignore" || echo "✗ .gitignore missing"
 	@echo ""

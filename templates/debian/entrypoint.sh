@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Starting container..."
+echo "Starting container as $(whoami) (UID: $(id -u))..."
 
 # Start SSH server if authorized_keys exists
-if [ -f /root/.ssh/authorized_keys ]; then
+if [ -f /home/devuser/.ssh/authorized_keys ]; then
     echo "SSH key found, starting SSH server..."
     
     # Generate host keys if they don't exist
