@@ -61,7 +61,9 @@ debian-test:
 
 
 # Destroy Debian profile
-debian-destroy:
+docker-destroy:
+  docker rm -f debian-dev
+
 # Build Debian Docker image with current user's UID/GID
 docker-build:
 	@cd templates/debian && make docker-build
@@ -72,7 +74,8 @@ docker-build-default:
 
 # Run Debian Docker container
 docker-run: docker-build
-	@cd templates/debian && docker run -it --rm debian-dev
+  @just docker-destroy
+  @cd templates/debian && docker run -v /data/documents/:/data/documents --name debian-dev -d debian-dev
 
 # Clean Debian Docker image
 docker-clean:
