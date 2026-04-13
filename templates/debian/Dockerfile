@@ -7,19 +7,19 @@ ARG USER_GID=1000
 
 # Create non-root user with custom UID/GID
 RUN groupadd -g ${USER_GID} -r devuser && useradd -r -g devuser -u ${USER_UID} -m -d /home/devuser devuser
-# Create app directory and set ownership
 RUN mkdir -p /home/devuser/app && chown ${USER_UID}:${USER_GID} /home/devuser/app
 
 WORKDIR /home/devuser/app
 # ============================================================================
 # PHASE 1: Root - System Packages
 # ============================================================================
-RUN apt-get update && apt-get install -y \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
   # Build tools
   build-essential \
   cmake \
   gcc \
   g++ \
+  sudo \
   make \
   # Version control
   git \
@@ -48,13 +48,17 @@ RUN apt-get update && apt-get install -y \
   openssh-server \
   && rm -rf /var/lib/apt/lists/*
 
+# Configure sudo for devuser (after sudo package is installed)
+RUN echo 'devuser ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/devuser && \
+  chmod 0440 /etc/sudoers.d/devuser && \
+  usermod -aG sudo devuser
+
 # Install neovim v0.12.1 (system-wide)
 RUN curl -sL https://github.com/neovim/neovim/releases/download/v0.12.1/nvim-linux-x86_64.tar.gz -o /tmp/nvim.tar.gz && \
   tar -xzf /tmp/nvim.tar.gz --strip-components=1 --overwrite -C /usr && \
   rm -rf /tmp/nvim.tar.gz && \
-  mkdir -p /root/.config && \
-  git clone https://github.com/Hnatekmar/lazyvim.git /opt/lazyvim && \
-  ln -sf /opt/lazyvim /root/.config/nvim
+  mkdir -p /root/.config
+
 
 # Install Oh My Zsh for root (will be copied to skeleton)
 RUN HOME=/root USER=root sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
@@ -82,6 +86,8 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 # PHASE 2: Non-Root User - Application Tools
 # ============================================================================
 USER devuser
+
+RUN git clone https://github.com/Hnatekmar/lazyvim.git ~/.config/nvim 
 
 # Install NVM and Node.js (as devuser)
 RUN cd /home/devuser && export NVM_DIR="/home/devuser/.nvm" && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash && \

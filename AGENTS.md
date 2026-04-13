@@ -109,6 +109,16 @@ incus launch --vm images:<distro>/<version> <vm-name> -p default -p <profile-nam
 docker run -it --rm <image-name>
 ```
 
+**Note**: The Debian Docker image uses an entrypoint script that keeps the container running. When testing commands:
+
+```bash
+# Override entrypoint for one-off commands
+docker run --rm --entrypoint bash debian-dev -c "your-command-here"
+
+# Or run interactively (container stays running)
+docker run -it --rm --entrypoint bash debian-dev
+```
+
 ### Manage Profiles
 ```bash
 # List all profiles
@@ -129,6 +139,24 @@ incus profile delete <profile-name>
 - Check network connectivity
 - Verify package names for specific distro
 - Use official installation scripts as fallback
+
+### Docker Build Fails on sudo Package
+- **Problem**: Installing `sudo` triggers interactive dpkg conffile prompt
+- **Cause**: Modifying `/etc/sudoers` before sudo is installed causes dpkg to prompt for conffile conflict resolution
+- **Solution**:
+  1. Use `DEBIAN_FRONTEND=noninteractive` with apt-get to suppress prompts
+  2. Configure sudoers **after** sudo package installation
+  3. Use `/etc/sudoers.d/` directory instead of appending to main sudoers file
+
+```dockerfile
+# Install packages with noninteractive frontend
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y sudo ...
+
+# Configure sudo AFTER installation
+RUN echo 'devuser ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/devuser && \
+    chmod 0440 /etc/sudoers.d/devuser && \
+    usermod -aG sudo devuser
+```
 
 ## Security
 
