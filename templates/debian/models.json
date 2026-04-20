@@ -1,117 +1,101 @@
 {
   "providers": {
-    "qwen-thinking": {
-      "baseUrl": "https://sota.hnatekmar.dev/v1",
+    "general-thinking": {
+      "baseUrl": "http://172.16.100.160:9090/general-thinking/v1",
       "apiKey": "sk",
       "api": "openai-completions",
       "models": [
         {
-          "id": "Qwen/Qwen3.5-122B-A10B-FP8",
-          "name": "Qwen3.5 (reasoning)",
-          "input": ["text", "image"],
+          "id": "Qwen3.5 Thinking (General)",
+          "name": "Qwen3.5 Thinking (General)",
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 262144,
-          "maxTokens": 32000,
           "cost": {
             "input": 0,
             "output": 0,
             "cacheRead": 0,
             "cacheWrite": 0
           },
-          "temperature": 1.0,
-          "top_p": 0.95,
-          "presence_penalty": 1.5,
           "compat": {
-            "thinkingFormat": "qwen-chat-template",
-            "extraBody": {
-              "top_k": 20,
-              "min_p": 0.0,
-              "repetition_penalty": 1.0
-            }
+            "thinkingFormat": "qwen-chat-template"
           }
         }
       ]
     },
-    "qwen-coding": {
-      "baseUrl": "https://sota.hnatekmar.dev/v1",
+    "coding-thinking": {
+      "baseUrl": "http://172.16.100.160:9090/coding-thinking/v1",
       "apiKey": "sk",
       "api": "openai-completions",
       "models": [
         {
-          "id": "Qwen/Qwen3.5-122B-A10B-FP8",
-          "name": "Qwen3.5 (coding)",
-          "reasoning": false,
-          "input": ["text", "image"],
+          "id": "coding-thinking",
+          "name": "Qwen3.5 Thinking (Coding)",
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 262144,
-          "maxTokens": 32000,
           "cost": {
             "input": 0,
             "output": 0,
             "cacheRead": 0,
             "cacheWrite": 0
           },
-          "temperature": 1.0,
-          "top_p": 0.8,
-          "presence_penalty": 0.0,
           "compat": {
-            "thinkingFormat": "qwen-chat-template",
-            "extraBody": {
-              "top_k": 20,
-              "min_p": 0.0,
-              "repetition_penalty": 1.0,
-              "chat_template_kwargs": {
-                "enable_thinking": false
-              }
-            }
+            "thinkingFormat": "qwen-chat-template"
           }
         }
       ]
     },
-    "fast": {
-      "baseUrl": "https://fast.hnatekmar.dev/v1",
+    "general": {
+      "baseUrl": "http://172.16.100.160:9090/general/v1",
       "apiKey": "sk",
       "api": "openai-completions",
       "models": [
         {
-          "id": "Qwen/Qwen3.5-35B-A3B-FP8",
-          "name": "Qwen/Qwen3.5-35B-A3B-FP8",
-          "reasoning": false,
-          "input": ["text", "image"],
+          "id": "general",
+          "name": "Qwen3.5 (General)",
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 262144,
-          "maxTokens": 65536,
           "cost": {
             "input": 0,
             "output": 0,
             "cacheRead": 0,
             "cacheWrite": 0
           },
-          "temperature": 1.0,
-          "top_p": 0.95,
-          "repetition_penalty": 1.0,
           "compat": {
-            "extraBody": {
-              "top_k": 20
-            }
+            "thinkingFormat": "qwen-chat-template"
           }
-        },
+        }
+      ]
+    },
+    "coding": {
+      "baseUrl": "http://172.16.100.160:9090/coding/v1",
+      "apiKey": "sk",
+      "api": "openai-completions",
+      "models": [
         {
-          "id": "Qwen/Qwen3-Coder-Next-FP8",
-          "name": "Qwen next coder",
-          "reasoning": false,
-          "input": ["text"],
+          "id": "coding",
+          "name": "Qwen3.5 (Coding)",
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 262144,
-          "maxTokens": 65536,
           "cost": {
             "input": 0,
             "output": 0,
             "cacheRead": 0,
             "cacheWrite": 0
           },
-          "temperature": 1.0,
-          "top_p": 0.95,
           "compat": {
-            "extraBody": {
-              "top_k": 40
-            }
+            "thinkingFormat": "qwen-chat-template"
           }
         }
       ]
