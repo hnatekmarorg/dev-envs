@@ -168,4 +168,6 @@ RUN direnv hook zsh >> ~/.zprofile
 
 RUN zsh -c "brew install kubelogin"
 
+COPY --chown=${USER_UID}:${USER_GID} ./models.json /home/devuser/.pi/agent/models.json
+
 ENTRYPOINT ["/entrypoint.sh"]
