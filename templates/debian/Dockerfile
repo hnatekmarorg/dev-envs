@@ -41,9 +41,11 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
   rsync \
   tar \
   unzip \
+  procps \
   # Shell & editors
   zsh \
   kitty-terminfo \
+  direnv \
   # SSH server
   openssh-server \
   && rm -rf /var/lib/apt/lists/*
@@ -82,6 +84,12 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
   && mv kubectl /usr/local/bin/ \
   && rm -f kubectl
 
+# Install Helm (system-wide)
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
+  chmod 700 get_helm.sh && \
+  ./get_helm.sh && \
+  rm -f get_helm.sh
+
 # ============================================================================
 # PHASE 2: Non-Root User - Application Tools
 # ============================================================================
@@ -101,6 +109,9 @@ RUN curl -fsSL https://bun.sh/install | bash
 # Install UV (as devuser)
 RUN curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
 
+# Install Homebrew (Linuxbrew as devuser)
+RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
+
 # Install global npm packages (as devuser)
 RUN . "$HOME/.nvm/nvm.sh" && \
   ~/.bun/bin/bun add -g @mariozechner/pi-coding-agent
@@ -108,9 +119,7 @@ RUN . "$HOME/.nvm/nvm.sh" && \
 # Install pi extensions and openspec (as devuser)
 RUN cd /home/devuser && export NVM_DIR="$HOME/.nvm" && \
   [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && \
-  ~/.bun/bin/pi install git:github.com/tmustier/pi-extensions && \
-  ~/.bun/bin/pi install npm:pi-hooks && \
-  ~/.bun/bin/bun add -g @fission-ai/openspec@latest
+  ~/.bun/bin/pi install git:github.com/tmdgusya/pi-engineering-discipline-extension 
 
 # ============================================================================
 # PHASE 3: Shell Configuration (as root)
@@ -124,6 +133,7 @@ RUN echo '# Development environment PATH exports' > /etc/profile.d/dev-path.sh &
   echo 'export PATH="/home/devuser/.nvm/versions/node/lts/bin:$PATH"' >> /etc/profile.d/dev-path.sh && \
   echo 'export PATH="/home/devuser/.bun/bin:$PATH"' >> /etc/profile.d/dev-path.sh && \
   echo 'export PATH="/home/devuser/.local/bin:$PATH"' >> /etc/profile.d/dev-path.sh && \
+  echo 'export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /etc/profile.d/dev-path.sh && \
   chmod +x /etc/profile.d/dev-path.sh
 
 # Add NVM_DIR to profile.d for consistency
@@ -142,13 +152,10 @@ RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/in
 USER root
 # Configure devuser's .zshrc with Oh My Zsh and PATH
 RUN # Start with Oh My Zsh default zshrc and prepend PATH source\
-  { echo 'source /etc/profile.d/dev-path.sh'; cat /home/devuser/.oh-my-zsh/templates/zshrc.zsh-template; } > /home/devuser/.zshrc && \
+  { echo 'source /etc/profile.d/dev-path.sh'; cat /home/devuser/.oh-my-zsh/templates/zshrc.zsh-template; echo ''; echo '# direnv hook for automatic environment variable loading'; echo 'eval "$(direnv hook zsh)"'; } > /home/devuser/.zshrc && \
   cp /home/devuser/.zshrc /etc/skel/.zshrc && \
   chown ${USER_UID}:${USER_GID} /home/devuser/.zshrc
 
-# Copy model files (owned by devuser)
-COPY --chown=${USER_UID}:${USER_GID} ./models.yml /home/devuser/.omp/agent/models.yml
-COPY --chown=${USER_UID}:${USER_GID} ./models.json /home/devuser/.pi/agent/models.json
 
 # Set working directory for mounted volumes
 WORKDIR /home/devuser/app
@@ -159,6 +166,10 @@ RUN chmod +x /entrypoint.sh
 
 # Set user back to devuser
 USER devuser
+
+RUN direnv hook zsh >> ~/.zprofile
+
+RUN zsh -c "brew install kubelogin"
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

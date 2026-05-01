@@ -1,9 +1,3 @@
-# OpenSpec artifacts (generated during workflow)
-openspec/changes/*/proposal.md
-openspec/changes/*/design.md
-openspec/changes/*/tasks.md
-openspec/changes/*/.openspec.yaml
-
 # Build outputs
 node_modules/
 dist/
