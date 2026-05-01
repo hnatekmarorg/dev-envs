@@ -29,7 +29,7 @@ A preseeded Debian VM template for rapid development environment provisioning us
 
 ```bash
 cd templates/debian
-make create
+just create
 ```
 
 This creates a profile named `debian-base-{commit-hash}` with all the configuration.
@@ -42,7 +42,7 @@ incus launch --vm images:debian/13/cloud my-dev-environment -p default -p debian
 
 **Important**: Use `images:debian/13/cloud` (not `images:debian/13`) to ensure cloud-init is pre-installed.
 
-Replace `{commit-hash}` with the actual hash shown after running `make create`.
+Replace `{commit-hash}` with the actual hash shown after running `just create`.
 
 ### 3. Wait for Initialization
 
@@ -82,7 +82,7 @@ users:
 
 **To change the SSH key:**
 1. Edit `cloud-init.yaml` and update the `ssh_authorized_keys` section
-2. Run `make destroy && make create` to update the profile
+2. Run `just destroy-profile && just create` to update the profile
 3. Launch a new VM with the updated profile
 
 **Note:** Existing VMs won't automatically update. You need to recreate them to apply key changes.
@@ -145,16 +145,16 @@ incus console my-dev-environment
 
 ### Update Profile
 ```bash
-make destroy
+just destroy-profile
 # Edit cloud-init.yaml
-make create
+just create
 ```
 
 **Note**: Existing VMs won't automatically update. You need to recreate them with the new profile.
 
 ### Test Profile
 ```bash
-make test-profile
+just test-profile
 ```
 
 Creates a test VM to verify the configuration before deploying to production.
@@ -211,7 +211,7 @@ Add to `write_files:` section in `cloud-init.yaml`
 ### Modify runcmd
 Edit `runcmd:` section in `cloud-init.yaml`
 
-**Important**: After changes, run `make destroy && make create` to update the profile.
+**Important**: After changes, run `just destroy-profile && just create` to update the profile.
 
 ## Why Debian?
 

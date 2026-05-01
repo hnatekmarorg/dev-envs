@@ -4,73 +4,44 @@ This document provides guidelines for AI agents working on this repository.
 
 ## Project Overview
 
-This repository manages distribution-specific development environment configurations using the openspec workflow. It contains templates for:
-
-- **Debian** - Docker-based development environment
-- **Ubuntu** - Incus/LXD VM-based development environment
+This repository provides Debian development environment configurations for Docker containers and Incus VMs.
 
 ## Technology Stack
 
-- **Package Manager**: Bun (not npm/yarn)
-- **Workflow**: OpenSpec for change management
-- **Infrastructure**: Incus/LXD for VMs, Docker for containers
+- **Infrastructure**: Incus/LXD for VMs, Docker/Podman for containers
 - **Task Runner**: Just (preferred over Makefile)
+- **Base Image**: Debian 13 (Trixie)
 
 ## Conventions
 
 ### Commit Messages
 - Use conventional commits (feat, fix, refactor, chore, etc.)
-- Include emoji prefixes where appropriate (see existing commits)
+- Include emoji prefixes where appropriate
 - Keep subject line under 72 characters
 
 ### File Structure
-- Templates live in `templates/<distro>/`
-- Each template should have:
+- Templates live in `templates/debian/`
+- Each template includes:
   - `README.md` - Usage instructions
-  - `cloud-init.yaml` or `Dockerfile` - Provisioning configuration
-  - `Makefile` or `Justfile` - Build/management commands
-- OpenSpec changes in `openspec/changes/<change-name>/`
+  - `Dockerfile` - Container provisioning
+  - `cloud-init.yaml` - VM provisioning
+  - `justfile` - Build/management commands
 
 ### Documentation
 - Root-level docs for user-facing information (README.md, AGENTS.md)
-- Technical docs in `docs/` directory
 - Keep documentation concise and actionable
-
-## OpenSpec Workflow
-
-1. **Propose**: Create change proposal with design and tasks
-2. **Apply**: Implement changes following the design
-3. **Archive**: Mark change as complete when done
-
-### Creating a New Change
-```bash
-just new <change-name>
-```
-
-### Checking Change Status
-```bash
-just status <change-name>
-```
-
-### Listing All Changes
-```bash
-just list
-```
 
 ## Guidelines for AI Agents
 
-### When Adding New Distro Templates
-1. Study existing templates (debian/, ubuntu/) for patterns
-2. Create change proposal first (design.md, tasks.md)
-3. Test provisioning on actual VM/container
-4. Document all commands and their purpose
-5. Update root README with new template info
+### When Modifying Templates
+1. Test changes in isolated environment first
+2. Document all commands and their purpose
+3. Ensure Docker and VM configurations stay in sync
 
-### When Modifying Existing Templates
-1. Understand the impact on existing VMs/containers
-2. Use openspec workflow for tracking changes
-3. Test changes in isolated environment first
-4. Document migration path if breaking changes exist
+### When Working with Dockerfile
+- Use multi-stage builds when appropriate
+- Keep images lean by cleaning up apt caches
+- Use non-root user for security
 
 ### When Working with Cloud-Init
 - Use `#cloud-config` header
@@ -86,27 +57,29 @@ just list
 
 ## Testing
 
-### VM Templates
+### Docker Template
 ```bash
-cd templates/<distro>
-make test-profile
+cd templates/debian
+just build
+just run
 ```
 
-### Docker Templates
+### VM Template
 ```bash
-cd templates/<distro>
-make build && make run
+cd templates/debian
+just create
+just test-profile
 ```
 
 ## Common Tasks
 
 ### Create New Development Environment
 ```bash
-# For VMs
-incus launch --vm images:<distro>/<version> <vm-name> -p default -p <profile-name>
+# Docker
+docker run -it --rm debian-dev
 
-# For Docker
-docker run -it --rm <image-name>
+# VM
+incus launch --vm images:debian/13/cloud <vm-name> -p default -p debian-dev
 ```
 
 **Note**: The Debian Docker image uses an entrypoint script that keeps the container running. When testing commands:
@@ -137,7 +110,7 @@ incus profile delete <profile-name>
 
 ### Package Installation Failures
 - Check network connectivity
-- Verify package names for specific distro
+- Verify package names for Debian
 - Use official installation scripts as fallback
 
 ### Docker Build Fails on sudo Package
@@ -169,5 +142,4 @@ RUN echo 'devuser ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/devuser && \
 
 - [Incus Documentation](https://linuxcontainers.org/incus/docs/main/)
 - [Cloud-init Documentation](https://cloudinit.readthedocs.io/)
-- [OpenSpec Schema](https://github.com/fission-ai/openspec)
 - [Just Command Runner](https://github.com/casey/just)

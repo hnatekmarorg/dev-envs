@@ -1,0 +1,93 @@
+# Debian Development Environment Task Runner
+# Install just: https://github.com/casey/just
+
+# Detect container builder (docker or podman)
+_container-builder:
+  #!/usr/bin/env bash
+  which docker >/dev/null && echo "docker" || echo "podman"
+
+# Get the container builder as a variable
+container-builder := "`just _container-builder`"
+
+# Incus VM image
+_IMAGE := "images:debian/13/cloud"
+
+# Default recipes
+default:
+  @just --list
+
+# Show help
+help: default
+
+# Container recipes
+
+# Build image with your UID/GID
+build:
+  @echo "==> Building image with your UID/GID using {{container-builder}}..."
+  {{container-builder}} build -t debian-dev  \
+    --build-arg USER_UID=$(id -u) \
+    --build-arg USER_GID=$(id -g) \
+    .
+
+# Build image with default UID/GID (1000)
+build-default:
+  @echo "==> Building image with default UID/GID (1000) using {{container-builder}}..."
+  {{container-builder}} build --no-cache -t debian-dev .
+
+# Remove image
+clean:
+  @echo "==> Removing image using {{container-builder}}..."
+  {{container-builder}} rmi debian-dev 2>/dev/null || echo "Image not found"
+
+# Run container (builds first)
+run: build
+  @echo "==> Running container using {{container-builder}}..."
+  @{{container-builder}} rm -f debian-dev 2>/dev/null || true
+  @{{container-builder}} run -it --rm --name debian-dev \
+    --device /dev/fuse \
+    --security-opt seccomp=unconfined \
+    --security-opt apparmor=unconfined \
+    -v "/data/documents/:/data/documents" \
+    debian-dev
+
+# Run container detached
+run-bg: build
+  @echo "==> Running container in background using {{container-builder}}..."
+  @{{container-builder}} rm -f debian-dev 2>/dev/null || true
+  @{{container-builder}} run -d \
+    --name debian-dev \
+    --restart unless-stopped \
+    --network host \
+    --device /dev/fuse \
+    --security-opt seccomp=unconfined \
+    --security-opt apparmor=unconfined \
+    -v "/data/documents/:/data/documents" \
+    debian-dev
+
+# Stop and remove container
+destroy:
+  @echo "==> Removing container using {{container-builder}}..."
+  @{{container-builder}} rm -f debian-dev 2>/dev/null || echo "Container not found"
+
+# Incus/VM recipes
+
+# Create Debian profile
+create:
+  @echo "==> Creating Debian base profile..."
+  @incus profile create debian-dev 2>/dev/null || echo "Profile already exists"
+  @incus profile set debian-dev cloud-init.user-data="$(cat ./cloud-init.yaml)"
+  @echo "==> Profile created. Launch VM with:"
+  @echo "    incus launch --vm {{_IMAGE}} <vm-name> -p default -p debian-dev"
+
+# Destroy Debian profile
+destroy-profile:
+  @echo "==> Destroying Debian base profile..."
+  @incus profile delete debian-dev 2>/dev/null || echo "Profile not found"
+
+# Test Debian profile with a VM
+test-profile:
+  @echo "==> Testing profile..."
+  @incus launch --vm {{_IMAGE}} test-debian -p default -p debian-dev
+  @echo "==> VM created. Wait 3-5 min for cloud-init."
+  @echo "==> Check: incus exec test-debian -- hostname"
+  @echo "==> Delete with: incus delete test-debian --force"
