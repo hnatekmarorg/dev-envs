@@ -157,19 +157,15 @@ RUN # Start with Oh My Zsh default zshrc and prepend PATH source\
   chown ${USER_UID}:${USER_GID} /home/devuser/.zshrc
 
 
-# Set working directory for mounted volumes
 WORKDIR /home/devuser/app
 
-# Copy and setup entrypoint script
 COPY ./entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Set user back to devuser
 USER devuser
 
 RUN direnv hook zsh >> ~/.zprofile
 
 RUN zsh -c "brew install kubelogin"
 
-# Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
