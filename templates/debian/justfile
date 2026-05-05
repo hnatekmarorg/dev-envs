@@ -58,6 +58,7 @@ run-bg: build
     --name debian-dev \
     --restart unless-stopped \
     --network host \
+    --gpus all \
     --device /dev/fuse \
     --security-opt seccomp=unconfined \
     --security-opt apparmor=unconfined \

@@ -2,6 +2,16 @@
 
 A preseeded Debian VM template for rapid development environment provisioning using Incus/LXD. This template automates the setup of a comprehensive development environment with essential tools, shells, and AI-powered coding assistance.
 
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Quick Start (VM)](#quick-start)
+- [Docker Container](#docker-container)
+- [Available Tools](#available-tools)
+- [Managing VMs](#managing-vms)
+- [Troubleshooting](#troubleshooting)
+
 ## Features
 
 - **Fully Isolated Development Environment**: Each VM is self-contained with all necessary tools
@@ -139,6 +149,43 @@ incus delete my-dev-environment --force
 ### View Logs
 ```bash
 incus console my-dev-environment
+```
+
+## Docker Container
+
+### Build and Run
+
+```bash
+cd templates/debian
+just build
+just run
+```
+
+### NVIDIA GPU Support
+
+The Dockerfile includes NVIDIA Container Toolkit and CUDA libraries for GPU workloads.
+
+**Requirements:**
+- NVIDIA GPU with drivers installed on host
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolpack/latest/install-guide.html) on host
+- Docker with NVIDIA runtime configured
+
+**Usage:**
+```bash
+# Run with all GPUs
+docker run --gpus all -it debian-dev
+
+# Run with specific GPU(s)
+docker run --gpus 'device=0' -it debian-dev
+docker run --gpus 'device=0,1' -it debian-dev
+
+# Run with GPU in interactive mode
+docker run --rm --gpus all --entrypoint bash debian-dev
+```
+
+**Verify GPU access:**
+```bash
+nvidia-smi
 ```
 
 ## Profile Management

@@ -37,6 +37,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
   git-delta \
   glow \
   # System tools
+  gpg \
   jq \
   rsync \
   tar \
@@ -60,6 +61,18 @@ RUN curl -sL https://github.com/neovim/neovim/releases/download/v0.12.1/nvim-lin
   tar -xzf /tmp/nvim.tar.gz --strip-components=1 --overwrite -C /usr && \
   rm -rf /tmp/nvim.tar.gz && \
   mkdir -p /root/.config
+
+# ============================================================================
+# PHASE 1.5: NVIDIA GPU Support
+# ============================================================================
+# Install NVIDIA Container Toolkit for GPU passthrough
+# Usage: docker run --gpus all -it <image>
+RUN curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
+  echo "deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://nvidia.github.io/libnvidia-container/stable/deb/$(dpkg --print-architecture) /" > /etc/apt/sources.list.d/nvidia-container-toolkit.list && \
+  DEBIAN_FRONTEND=noninteractive apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-container-toolkit && \
+  nvidia-ctk runtime configure --runtime=docker && \
+  rm -rf /var/lib/apt/lists/*
 
 
 # Install Oh My Zsh for root (will be copied to skeleton)
