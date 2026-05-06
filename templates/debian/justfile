@@ -72,6 +72,11 @@ destroy:
 
 # Incus/VM recipes
 
+# VM configuration defaults
+_VM_NAME := "debian-dev"
+_VM_CPU := "4"
+_VM_MEMORY := "32GiB"
+
 # Create Debian profile
 create:
   @echo "==> Creating Debian base profile..."
@@ -79,6 +84,9 @@ create:
   @incus profile set debian-dev cloud-init.user-data="$(cat ./cloud-init.yaml)"
   @echo "==> Profile created. Launch VM with:"
   @echo "    incus launch --vm {{_IMAGE}} <vm-name> -p default -p debian-dev"
+  @echo ""
+  @echo "Or with custom CPU/memory:"
+  @echo "    just vm create-custom <name> <cpu> <memory>"
 
 # Destroy Debian profile
 destroy-profile:
@@ -88,7 +96,68 @@ destroy-profile:
 # Test Debian profile with a VM
 test-profile:
   @echo "==> Testing profile..."
-  @incus launch --vm {{_IMAGE}} test-debian -p default -p debian-dev
+  @incus launch --vm {{_IMAGE}} test-debian -p default -p debian-dev \
+    --config limits.cpu={{_VM_CPU}} \
+    --config limits.memory={{_VM_MEMORY}}
   @echo "==> VM created. Wait 3-5 min for cloud-init."
   @echo "==> Check: incus exec test-debian -- hostname"
   @echo "==> Delete with: incus delete test-debian --force"
+
+# Run VM (creates profile if needed, launches with fixed name 'debian-dev')
+run-vm: create
+  #!/usr/bin/env bash
+  VM_NAME="{{_VM_NAME}}"
+  CPU="{{_VM_CPU}}"
+  MEMORY="{{_VM_MEMORY}}"
+  
+  echo "==> Running VM: $VM_NAME (CPU: $CPU, Memory: $MEMORY)"
+  
+  # Stop and delete if exists
+  if incus list --format=csv | grep -q "^$VM_NAME,"; then
+    echo "==> VM exists, recreating..."
+    incus stop $VM_NAME --force 2>/dev/null || true
+    incus delete $VM_NAME --force 2>/dev/null || true
+  fi
+  
+  # Launch VM with CPU and memory settings
+  incus launch --vm {{_IMAGE}} $VM_NAME -p default -p debian-dev \
+    --config limits.cpu=$CPU \
+    --config limits.memory=$MEMORY
+  
+  echo ""
+  echo "==> VM launched. Wait 3-5 minutes for cloud-init to complete."
+  echo "==> Check status: incus exec $VM_NAME -- cloud-init status"
+  echo ""
+  echo "==> When ready, access with:"
+  echo "    incus exec -t $VM_NAME -- bash"
+  echo ""
+  echo "==> Stop with: incus stop $VM_NAME --force"
+  echo "==> Delete with: incus delete $VM_NAME --force"
+
+# Create VM with custom CPU and memory
+create-custom name cpu memory:
+  #!/usr/bin/env bash
+  VM_NAME="{{name}}"
+  CPU="{{cpu}}"
+  MEMORY="{{memory}}"
+  
+  echo "==> Creating VM: $VM_NAME (CPU: $CPU, Memory: $MEMORY)"
+  
+  # Create profile if needed
+  incus profile create debian-dev 2>/dev/null || echo "Profile already exists"
+  incus profile set debian-dev cloud-init.user-data="$(cat ./cloud-init.yaml)"
+  
+  # Launch VM with custom CPU and memory
+  incus launch --vm {{_IMAGE}} $VM_NAME -p default -p debian-dev \
+    --config limits.cpu=$CPU \
+    --config limits.memory=$MEMORY
+  
+  echo ""
+  echo "==> VM launched. Wait 3-5 minutes for cloud-init to complete."
+  echo "==> Check status: incus exec $VM_NAME -- cloud-init status"
+  echo ""
+  echo "==> When ready, access with:"
+  echo "    incus exec -it $VM_NAME -- bash"
+  echo ""
+  echo "==> Stop with: incus stop $VM_NAME --force"
+  echo "==> Delete with: incus delete $VM_NAME --force"
