@@ -77,7 +77,10 @@ _VM_NAME := "debian-dev"
 _VM_CPU := "4"
 _VM_MEMORY := "32GiB"
 
-# Create Debian profile
+# LXD Container configuration
+_LXD_NAME := "debian-lxd-dev"
+
+# Create Debian profile (VM)
 create:
   @echo "==> Creating Debian base profile..."
   @incus profile create debian-dev 2>/dev/null || echo "Profile already exists"
@@ -87,6 +90,71 @@ create:
   @echo ""
   @echo "Or with custom CPU/memory:"
   @echo "    just vm create-custom <name> <cpu> <memory>"
+
+# Create LXD container profile (nested Docker + GPU)
+lxd-create:
+	@echo "==> Creating LXD container profile with Docker + GPU support..."
+	@incus profile create debian-lxd 2>/dev/null || echo "Profile exists"
+	@incus profile set debian-lxd cloud-init.user-data="$(cat ./cloud-init-lxd.yaml)"
+	@incus profile set debian-lxd security.nesting true
+	@incus profile set debian-lxd security.privileged true
+	@incus profile device add debian-lxd gpu gpu 2>/dev/null || echo "GPU device added"
+	@echo ""
+	@echo "==> LXD profile created. Launch container with:"
+	@echo "    just lxd-run <container-name>"
+	@echo "    # or manually:"
+	@echo "    incus launch images:debian/13/cloud <name> -p default -p debian-lxd"
+
+# Launch LXD container with Docker + GPU
+lxd-run name:
+	#!/usr/bin/env bash
+	CONTAINER_NAME="{{name}}"
+	
+	echo "==> Launching LXD container: $CONTAINER_NAME"
+	
+	# Stop and delete if exists
+	if incus list --format=csv | grep -q "^$CONTAINER_NAME,"; then
+		echo "==> Container exists, recreating..."
+		incus stop $CONTAINER_NAME --force 2>/dev/null || true
+		incus delete $CONTAINER_NAME --force 2>/dev/null || true
+	fi
+	
+	# Launch container
+	incus launch images:debian/13/cloud $CONTAINER_NAME -p default -p debian-lxd
+	
+	echo ""
+	echo "==> Container launched. Wait 2-3 minutes for cloud-init."
+	echo "==> Check status: incus exec $CONTAINER_NAME -- cloud-init status"
+	echo "==> Test Docker: incus exec $CONTAINER_NAME -- docker ps"
+	echo "==> Test GPU: incus exec $CONTAINER_NAME -- nvidia-smi"
+	echo ""
+	echo "==> Access with: incus exec -it $CONTAINER_NAME -- bash"
+	echo "==> Stop with: incus stop $CONTAINER_NAME --force"
+	echo "==> Delete with: incus delete $CONTAINER_NAME --force"
+
+# Add volume mount to LXD container
+lxd-mount container source path:
+	#!/usr/bin/env bash
+	echo "==> Mounting {{source}} to /{{path}} in {{container}}..."
+	incus config device add {{container}} shared-{{path}} disk source={{source}} path=/{{path}}
+	echo "==> Volume mounted. Access at /{{path}} inside container."
+
+# Remove volume mount from LXD container
+lxd-unmount container path:
+	#!/usr/bin/env bash
+	echo "==> Removing mount /{{path}} from {{container}}..."
+	incus config device remove {{container}} shared-{{path}} 2>/dev/null || echo "Mount not found"
+
+# Show LXD container info
+lxd-info name:
+	@echo "==> Container: {{name}}"
+	@incus list {{name}} --format=table
+	@echo ""
+	@echo "==> Devices:"
+	@incus config device show {{name}}
+	@echo ""
+	@echo "==> Docker status:"
+	@incus exec {{name}} -- systemctl status docker --no-pager || echo "Docker not ready yet"
 
 # Destroy Debian profile
 destroy-profile:
