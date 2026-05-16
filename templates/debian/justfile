@@ -75,7 +75,13 @@ destroy:
 # VM configuration defaults
 _VM_NAME := "debian-dev"
 _VM_CPU := "4"
-_VM_MEMORY := "32GiB"
+_VM_MEMORY := "16GiB"
+
+# VM resource presets
+_VM_CPU_SMALL := "2"
+_VM_MEMORY_SMALL := "8GiB"
+_VM_CPU_LARGE := "8"
+_VM_MEMORY_LARGE := "32GiB"
 
 # LXD Container configuration
 _LXD_NAME := "debian-lxd-dev"
@@ -167,9 +173,9 @@ test-profile:
   @incus launch --vm {{_IMAGE}} test-debian -p default -p debian-dev \
     --config limits.cpu={{_VM_CPU}} \
     --config limits.memory={{_VM_MEMORY}}
-  @echo "==> VM created. Wait 3-5 min for cloud-init."
-  @echo "==> Check: incus exec test-debian -- hostname"
-  @echo "==> Delete with: incus delete test-debian --force"
+  @just wait-for-vm test-debian
+  @echo ""
+  @echo "==> Test complete. Cleanup with: incus delete test-debian --force"
 
 # Run VM (creates profile if needed, launches with fixed name 'debian-dev')
 run-vm: create
@@ -193,14 +199,61 @@ run-vm: create
     --config limits.memory=$MEMORY
   
   echo ""
-  echo "==> VM launched. Wait 3-5 minutes for cloud-init to complete."
-  echo "==> Check status: incus exec $VM_NAME -- cloud-init status"
+  echo "==> VM launched. Waiting for cloud-init to complete..."
   echo ""
-  echo "==> When ready, access with:"
-  echo "    incus exec -t $VM_NAME -- bash"
+  
+  # Wait for VM to be ready
+  just wait-for-vm $VM_NAME
+
+# Run VM with small resources (2 CPU, 8GiB RAM)
+run-vm-small:
+  #!/usr/bin/env bash
+  echo "==> Running small VM (2 CPU, 8GiB RAM)..."
+  VM_NAME="{{_VM_NAME}}"
+  
+  # Stop and delete if exists
+  if incus list --format=csv | grep -q "^$VM_NAME,"; then
+    echo "==> VM exists, recreating..."
+    incus stop $VM_NAME --force 2>/dev/null || true
+    incus delete $VM_NAME --force 2>/dev/null || true
+  fi
+  
+  # Create profile if needed
+  incus profile create debian-dev 2>/dev/null || echo "Profile exists"
+  incus profile set debian-dev cloud-init.user-data="$(cat ./cloud-init.yaml)"
+  
+  # Launch VM with small resources
+  incus launch --vm {{_IMAGE}} $VM_NAME -p default -p debian-dev \
+    --config limits.cpu={{_VM_CPU_SMALL}} \
+    --config limits.memory={{_VM_MEMORY_SMALL}}
+  
   echo ""
-  echo "==> Stop with: incus stop $VM_NAME --force"
-  echo "==> Delete with: incus delete $VM_NAME --force"
+  just wait-for-vm $VM_NAME
+
+# Run VM with large resources (8 CPU, 32GiB RAM)
+run-vm-large:
+  #!/usr/bin/env bash
+  echo "==> Running large VM (8 CPU, 32GiB RAM)..."
+  VM_NAME="{{_VM_NAME}}"
+  
+  # Stop and delete if exists
+  if incus list --format=csv | grep -q "^$VM_NAME,"; then
+    echo "==> VM exists, recreating..."
+    incus stop $VM_NAME --force 2>/dev/null || true
+    incus delete $VM_NAME --force 2>/dev/null || true
+  fi
+  
+  # Create profile if needed
+  incus profile create debian-dev 2>/dev/null || echo "Profile exists"
+  incus profile set debian-dev cloud-init.user-data="$(cat ./cloud-init.yaml)"
+  
+  # Launch VM with large resources
+  incus launch --vm {{_IMAGE}} $VM_NAME -p default -p debian-dev \
+    --config limits.cpu={{_VM_CPU_LARGE}} \
+    --config limits.memory={{_VM_MEMORY_LARGE}}
+  
+  echo ""
+  just wait-for-vm $VM_NAME
 
 # Create VM with custom CPU and memory
 create-custom name cpu memory:
@@ -221,11 +274,48 @@ create-custom name cpu memory:
     --config limits.memory=$MEMORY
   
   echo ""
-  echo "==> VM launched. Wait 3-5 minutes for cloud-init to complete."
-  echo "==> Check status: incus exec $VM_NAME -- cloud-init status"
+  echo "==> VM launched. Waiting for cloud-init to complete..."
   echo ""
-  echo "==> When ready, access with:"
-  echo "    incus exec -it $VM_NAME -- bash"
-  echo ""
-  echo "==> Stop with: incus stop $VM_NAME --force"
-  echo "==> Delete with: incus delete $VM_NAME --force"
+  just wait-for-vm $VM_NAME
+
+# Wait for VM to be ready with progress indicator
+wait-for-vm name="{{_VM_NAME}}":
+  #!/usr/bin/env bash
+  VM_NAME="{{name}}"
+  echo "==> Waiting for $VM_NAME to be ready..."
+  for i in $(seq 1 360); do
+    echo -n "[$i/360] Checking VM status... "
+    if incus exec $VM_NAME -- cloud-init status 2>/dev/null | grep -q "done"; then
+      echo "✅ READY!"
+      echo ""
+      echo "✅ VM $VM_NAME is ready!"
+      echo "   Access with: incus exec -it $VM_NAME -- bash"
+      exit 0
+    fi
+    echo "⏳ Provisioning..."
+    sleep 5
+  done
+  echo "❌ Timeout: VM not ready after 5 minutes"
+  echo "   Check logs: incus console $VM_NAME"
+  exit 1
+
+# List all development VMs
+vm-list:
+  @echo "==> Development VMs:"
+  @incus list --format=table | grep -E "debian|dev" || echo "No VMs found"
+
+# Quick access to VM shell
+vm-shell name="{{_VM_NAME}}":
+  @echo "==> Connecting to {{name}}..."
+  @incus exec -it {{name}} -- bash
+
+# Show VM resource usage
+vm-status name="{{_VM_NAME}}":
+  @echo "==> VM: {{name}}"
+  @incus list {{name}} --format=table
+  @echo ""
+  @echo "==> Resource Usage:"
+  @incus exec {{name}} -- free -h || true
+  @echo ""
+  @echo "==> Disk Usage:"
+  @incus exec {{name}} -- df -h / || true
