@@ -408,6 +408,22 @@ cmd_create() {
     fi
   fi
 
+  # A hostname that does not resolve to the ingress address produces a URL that
+  # can never work, and the failure looks like a broken ingress: the browser
+  # shows a certificate error or a blank page. Warn instead of leaving a trap.
+  if [[ -n "$address" ]]; then
+    local ingress_ip resolved
+    ingress_ip="$(kubectl --context "$ctx" get ingress "$ns" -n "$ns" \
+      -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+    resolved="$(getent hosts "$address" 2>/dev/null | awk '{print $1; exit}')"
+    if [[ -z "$resolved" ]]; then
+      log "WARN: $address does not resolve; the URL will not work until it does"
+    elif [[ -n "$ingress_ip" && "$resolved" != "$ingress_ip" ]]; then
+      log "WARN: $address resolves to $resolved, but the ingress is at $ingress_ip"
+      log "      point DNS at the ingress address, or create the env with that name"
+    fi
+  fi
+
   if [[ "$JSON_MODE" -eq 1 ]]; then
     local json_containers="" c
     for c in "${sidecar_names[@]}"; do
